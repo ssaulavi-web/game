@@ -1,98 +1,95 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>라온이의 블록 블라스트</title>
 
 <script src="https://cdn.tailwindcss.com"></script>
 
 <style>
-  html, body{
-    margin:0;
-    padding:0;
-    width:100%;
-    height:100%;
-    overflow:hidden;
-    background:#f5f3ff;
-    font-family:sans-serif;
-  }
+html, body{
+  margin:0;
+  padding:0;
+  width:100%;
+  height:100%;
+  overflow:hidden;
+  background:#f3f0ff;
+  font-family:sans-serif;
+}
 
-  .app{
-    width:100%;
-    max-width:430px;
-    height:100vh;
-    margin:0 auto;
-    display:flex;
-    flex-direction:column;
-    background:white;
-  }
+.app{
+  width:100%;
+  max-width:430px;
+  height:100vh;
+  margin:0 auto;
+  background:#fff;
+  display:flex;
+  flex-direction:column;
+}
 
-  .game-area{
-    flex:1;
-    display:flex;
-    flex-direction:column;
-    padding:10px;
-    overflow:hidden;
-  }
+#startScreen,
+#gameScreen{
+  width:100%;
+  height:100%;
+}
 
-  .board{
-    flex:1;
-    display:grid;
-    grid-template-columns:repeat(8,1fr);
-    gap:4px;
-    background:#ddd6fe;
-    padding:6px;
-    border-radius:18px;
-    aspect-ratio:1/1;
-  }
+.board{
+  width:100%;
+  aspect-ratio:1/1;
+  display:grid;
+  grid-template-columns:repeat(8,1fr);
+  gap:4px;
+  background:#ddd6fe;
+  padding:6px;
+  border-radius:20px;
+}
 
-  .cell{
-    background:white;
-    border-radius:8px;
-  }
+.cell{
+  background:#fff;
+  border-radius:8px;
+}
 
-  .piece-cell{
-    width:22px;
-    height:22px;
-    border-radius:6px;
-  }
+.slots{
+  display:flex;
+  justify-content:space-between;
+  margin-top:15px;
+}
 
-  .slots{
-    display:flex;
-    justify-content:space-around;
-    margin-top:12px;
-    min-height:120px;
-  }
+.slot{
+  width:32%;
+  height:100px;
+  background:#f5f3ff;
+  border-radius:16px;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  cursor:pointer;
+}
 
-  .slot{
-    width:30%;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    border-radius:14px;
-  }
+.piece-row{
+  display:flex;
+}
 
-  .banner{
-    height:90px;
-    flex-shrink:0;
-    background:#fff;
-    border-top:1px solid #ddd;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    overflow:hidden;
-  }
+.piece-cell{
+  width:22px;
+  height:22px;
+  margin:2px;
+  border-radius:6px;
+}
 
-  .banner img{
-    width:100%;
-    height:100%;
-    object-fit:cover;
-  }
+.banner{
+  height:90px;
+  border-top:1px solid #ddd;
+  flex-shrink:0;
+  overflow:hidden;
+}
 
-  .hidden{
-    display:none;
-  }
+.banner img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
 </style>
 </head>
 
@@ -101,35 +98,37 @@
 <div class="app">
 
   <!-- 시작화면 -->
-  <div id="startScreen" class="flex-1 flex flex-col items-center justify-center gap-6 bg-gradient-to-b from-purple-100 to-pink-100">
+  <div id="startScreen"
+       class="flex flex-col items-center justify-center gap-6 bg-gradient-to-b from-purple-100 to-pink-100">
+
     <div class="text-6xl">🧩</div>
 
-    <div class="text-center">
-      <h1 class="text-4xl font-black text-purple-700">
-        라온이의<br>블록 블라스트
-      </h1>
-    </div>
+    <h1 class="text-4xl font-black text-center text-purple-700">
+      라온이의<br>
+      블록 블라스트
+    </h1>
 
     <button id="startBtn"
-      class="px-8 py-4 rounded-2xl bg-purple-600 text-white text-xl font-bold shadow-xl">
+      class="px-8 py-4 bg-purple-600 text-white rounded-2xl text-xl font-bold shadow-xl">
       게임 시작
     </button>
+
   </div>
 
   <!-- 게임화면 -->
-  <div id="gameScreen" class="hidden flex-1 flex-col">
+  <div id="gameScreen" style="display:none;" class="flex flex-col flex-1">
 
-    <div class="game-area">
+    <div class="flex-1 p-3 overflow-hidden">
 
       <!-- 점수 -->
       <div class="flex justify-between items-center mb-3">
-        <div class="text-xl font-bold text-purple-700">
+        <div class="text-2xl font-black text-purple-700">
           점수 :
           <span id="score">0</span>
         </div>
       </div>
 
-      <!-- 게임보드 -->
+      <!-- 보드 -->
       <div id="board" class="board"></div>
 
       <!-- 블록 -->
@@ -140,9 +139,9 @@
     <!-- 쿠팡 배너 -->
     <div class="banner">
 
-      <!-- 여기에 실제 쿠팡파트너스 iframe 넣으면 됨 -->
+      <!-- 실제 쿠팡파트너스 코드 넣는 위치 -->
 
-      <img src="https://images.unsplash.com/photo-1542291026-7eec264c27ff?q=80&w=1200&auto=format&fit=crop" />
+      <img src="https://images.unsplash.com/photo-1542291026-7eec264c27ff?q=80&w=1200&auto=format&fit=crop">
 
     </div>
 
@@ -151,42 +150,46 @@
 </div>
 
 <script>
-const board = document.getElementById("board");
-const slots = document.getElementById("slots");
-const scoreEl = document.getElementById("score");
-
 const startBtn = document.getElementById("startBtn");
 const startScreen = document.getElementById("startScreen");
 const gameScreen = document.getElementById("gameScreen");
 
+const board = document.getElementById("board");
+const slots = document.getElementById("slots");
+const scoreEl = document.getElementById("score");
+
+const SIZE = 8;
+
+let grid = [];
 let score = 0;
 
-const grid = [];
-const size = 8;
-
-const pieces = [
+const shapes = [
   [[1]],
   [[1,1]],
   [[1],[1]],
   [[1,1],[1,1]],
-  [[1,1,1]],
+  [[1,1,1]]
 ];
 
 const colors = [
   "#fb7185",
-  "#a855f7",
+  "#8b5cf6",
   "#06b6d4",
   "#22c55e",
   "#f59e0b"
 ];
 
 function initBoard(){
-  board.innerHTML = "";
 
-  for(let r=0;r<size;r++){
+  board.innerHTML = "";
+  grid = [];
+
+  for(let r=0;r<SIZE;r++){
+
     grid[r] = [];
 
-    for(let c=0;c<size;c++){
+    for(let c=0;c<SIZE;c++){
+
       grid[r][c] = 0;
 
       const cell = document.createElement("div");
@@ -199,38 +202,37 @@ function initBoard(){
 }
 
 function drawBoard(){
-  for(let r=0;r<size;r++){
-    for(let c=0;c<size;c++){
+
+  for(let r=0;r<SIZE;r++){
+
+    for(let c=0;c<SIZE;c++){
 
       const cell = document.getElementById(`cell-${r}-${c}`);
 
       if(grid[r][c]){
         cell.style.background = grid[r][c];
       }else{
-        cell.style.background = "white";
+        cell.style.background = "#fff";
       }
     }
   }
 }
 
-function randomPiece(){
-  const shape = pieces[Math.floor(Math.random()*pieces.length)];
+function randomBlock(){
+
+  const shape = shapes[Math.floor(Math.random()*shapes.length)];
   const color = colors[Math.floor(Math.random()*colors.length)];
 
   return {shape,color};
 }
 
-let currentBlocks = [];
-
-function renderBlocks(){
+function createBlocks(){
 
   slots.innerHTML = "";
-  currentBlocks = [];
 
   for(let i=0;i<3;i++){
 
-    const block = randomPiece();
-    currentBlocks.push(block);
+    const block = randomBlock();
 
     const slot = document.createElement("div");
     slot.className = "slot";
@@ -240,7 +242,7 @@ function renderBlocks(){
     block.shape.forEach(row=>{
 
       const rowEl = document.createElement("div");
-      rowEl.style.display = "flex";
+      rowEl.className = "piece-row";
 
       row.forEach(v=>{
 
@@ -261,25 +263,41 @@ function renderBlocks(){
 
     slot.appendChild(wrap);
 
-    slot.onclick = ()=>placeRandom(block,slot);
+    slot.onclick = function(){
+
+      putBlock(block);
+
+      slot.style.opacity = "0.3";
+      slot.style.pointerEvents = "none";
+    };
 
     slots.appendChild(slot);
   }
 }
 
-function placeRandom(block,slot){
+function putBlock(block){
 
-  for(let r=0;r<size;r++){
-    for(let c=0;c<size;c++){
+  for(let r=0;r<SIZE;r++){
+
+    for(let c=0;c<SIZE;c++){
 
       if(canPlace(block,r,c)){
 
-        place(block,r,c);
+        for(let br=0;br<block.shape.length;br++){
 
-        slot.style.visibility = "hidden";
+          for(let bc=0;bc<block.shape[0].length;bc++){
+
+            if(block.shape[br][bc]){
+
+              grid[r+br][c+bc] = block.color;
+            }
+          }
+        }
 
         score += 10;
         scoreEl.innerText = score;
+
+        drawBoard();
 
         return;
       }
@@ -292,11 +310,12 @@ function placeRandom(block,slot){
 function canPlace(block,row,col){
 
   for(let r=0;r<block.shape.length;r++){
+
     for(let c=0;c<block.shape[0].length;c++){
 
       if(block.shape[r][c]){
 
-        if(row+r >= size || col+c >= size){
+        if(row+r >= SIZE || col+c >= SIZE){
           return false;
         }
 
@@ -310,29 +329,15 @@ function canPlace(block,row,col){
   return true;
 }
 
-function place(block,row,col){
+startBtn.onclick = function(){
 
-  for(let r=0;r<block.shape.length;r++){
-    for(let c=0;c<block.shape[0].length;c++){
-
-      if(block.shape[r][c]){
-        grid[row+r][col+c] = block.color;
-      }
-    }
-  }
-
-  drawBoard();
-}
-
-startBtn.addEventListener("click",()=>{
-
-  startScreen.classList.add("hidden");
-  gameScreen.classList.remove("hidden");
+  startScreen.style.display = "none";
+  gameScreen.style.display = "flex";
 
   initBoard();
   drawBoard();
-  renderBlocks();
-});
+  createBlocks();
+};
 </script>
 
 </body>
