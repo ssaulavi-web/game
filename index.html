@@ -1,42 +1,339 @@
-<!-- Footer Help Guide -->
-<p class="text-center text-[10px] text-slate-400 mt-1.5">
-  한 줄을 가득 채우면 우주선처럼 팡! 터져요 ✨
-</p>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>라온이의 블록 블라스트</title>
 
-<!-- ✅ 쿠팡 광고 배너 -->
-<div class="mt-2 pb-2 flex justify-center">
-  <div class="w-full bg-white rounded-2xl border border-slate-200 shadow-md overflow-hidden">
+<script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- 광고 라벨 -->
-    <div class="px-3 py-1 bg-slate-50 border-b text-[10px] text-slate-400 font-bold">
-      우리 아이 추천템
+<style>
+  html, body{
+    margin:0;
+    padding:0;
+    width:100%;
+    height:100%;
+    overflow:hidden;
+    background:#f5f3ff;
+    font-family:sans-serif;
+  }
+
+  .app{
+    width:100%;
+    max-width:430px;
+    height:100vh;
+    margin:0 auto;
+    display:flex;
+    flex-direction:column;
+    background:white;
+  }
+
+  .game-area{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    padding:10px;
+    overflow:hidden;
+  }
+
+  .board{
+    flex:1;
+    display:grid;
+    grid-template-columns:repeat(8,1fr);
+    gap:4px;
+    background:#ddd6fe;
+    padding:6px;
+    border-radius:18px;
+    aspect-ratio:1/1;
+  }
+
+  .cell{
+    background:white;
+    border-radius:8px;
+  }
+
+  .piece-cell{
+    width:22px;
+    height:22px;
+    border-radius:6px;
+  }
+
+  .slots{
+    display:flex;
+    justify-content:space-around;
+    margin-top:12px;
+    min-height:120px;
+  }
+
+  .slot{
+    width:30%;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    border-radius:14px;
+  }
+
+  .banner{
+    height:90px;
+    flex-shrink:0;
+    background:#fff;
+    border-top:1px solid #ddd;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    overflow:hidden;
+  }
+
+  .banner img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+  }
+
+  .hidden{
+    display:none;
+  }
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+  <!-- 시작화면 -->
+  <div id="startScreen" class="flex-1 flex flex-col items-center justify-center gap-6 bg-gradient-to-b from-purple-100 to-pink-100">
+    <div class="text-6xl">🧩</div>
+
+    <div class="text-center">
+      <h1 class="text-4xl font-black text-purple-700">
+        라온이의<br>블록 블라스트
+      </h1>
+    </div>
+
+    <button id="startBtn"
+      class="px-8 py-4 rounded-2xl bg-purple-600 text-white text-xl font-bold shadow-xl">
+      게임 시작
+    </button>
+  </div>
+
+  <!-- 게임화면 -->
+  <div id="gameScreen" class="hidden flex-1 flex-col">
+
+    <div class="game-area">
+
+      <!-- 점수 -->
+      <div class="flex justify-between items-center mb-3">
+        <div class="text-xl font-bold text-purple-700">
+          점수 :
+          <span id="score">0</span>
+        </div>
+      </div>
+
+      <!-- 게임보드 -->
+      <div id="board" class="board"></div>
+
+      <!-- 블록 -->
+      <div id="slots" class="slots"></div>
+
     </div>
 
     <!-- 쿠팡 배너 -->
-    <a href="https://link.coupang.com/a/여기에본인코드"
-       target="_blank"
-       class="flex items-center gap-3 p-3 active:scale-[0.98] transition">
+    <div class="banner">
 
-      <!-- 상품 이미지 -->
-      <img
-        src="https://via.placeholder.com/80x80.png?text=TOY"
-        class="w-16 h-16 rounded-xl object-cover border"
-      />
+      <!-- 여기에 실제 쿠팡파트너스 iframe 넣으면 됨 -->
 
-      <!-- 텍스트 -->
-      <div class="flex-1">
-        <p class="text-xs text-slate-400 font-bold mb-1">
-          광고 · 쿠팡 파트너스
-        </p>
+      <img src="https://images.unsplash.com/photo-1542291026-7eec264c27ff?q=80&w=1200&auto=format&fit=crop" />
 
-        <p class="text-sm font-bold text-slate-700 leading-snug">
-          아이가 좋아하는 인기 장난감 모음
-        </p>
+    </div>
 
-        <p class="text-xs text-pink-500 font-extrabold mt-1">
-          지금 할인 보러가기 →
-        </p>
-      </div>
-    </a>
   </div>
+
 </div>
+
+<script>
+const board = document.getElementById("board");
+const slots = document.getElementById("slots");
+const scoreEl = document.getElementById("score");
+
+const startBtn = document.getElementById("startBtn");
+const startScreen = document.getElementById("startScreen");
+const gameScreen = document.getElementById("gameScreen");
+
+let score = 0;
+
+const grid = [];
+const size = 8;
+
+const pieces = [
+  [[1]],
+  [[1,1]],
+  [[1],[1]],
+  [[1,1],[1,1]],
+  [[1,1,1]],
+];
+
+const colors = [
+  "#fb7185",
+  "#a855f7",
+  "#06b6d4",
+  "#22c55e",
+  "#f59e0b"
+];
+
+function initBoard(){
+  board.innerHTML = "";
+
+  for(let r=0;r<size;r++){
+    grid[r] = [];
+
+    for(let c=0;c<size;c++){
+      grid[r][c] = 0;
+
+      const cell = document.createElement("div");
+      cell.className = "cell";
+      cell.id = `cell-${r}-${c}`;
+
+      board.appendChild(cell);
+    }
+  }
+}
+
+function drawBoard(){
+  for(let r=0;r<size;r++){
+    for(let c=0;c<size;c++){
+
+      const cell = document.getElementById(`cell-${r}-${c}`);
+
+      if(grid[r][c]){
+        cell.style.background = grid[r][c];
+      }else{
+        cell.style.background = "white";
+      }
+    }
+  }
+}
+
+function randomPiece(){
+  const shape = pieces[Math.floor(Math.random()*pieces.length)];
+  const color = colors[Math.floor(Math.random()*colors.length)];
+
+  return {shape,color};
+}
+
+let currentBlocks = [];
+
+function renderBlocks(){
+
+  slots.innerHTML = "";
+  currentBlocks = [];
+
+  for(let i=0;i<3;i++){
+
+    const block = randomPiece();
+    currentBlocks.push(block);
+
+    const slot = document.createElement("div");
+    slot.className = "slot";
+
+    const wrap = document.createElement("div");
+
+    block.shape.forEach(row=>{
+
+      const rowEl = document.createElement("div");
+      rowEl.style.display = "flex";
+
+      row.forEach(v=>{
+
+        const cell = document.createElement("div");
+        cell.className = "piece-cell";
+
+        if(v){
+          cell.style.background = block.color;
+        }else{
+          cell.style.opacity = "0";
+        }
+
+        rowEl.appendChild(cell);
+      });
+
+      wrap.appendChild(rowEl);
+    });
+
+    slot.appendChild(wrap);
+
+    slot.onclick = ()=>placeRandom(block,slot);
+
+    slots.appendChild(slot);
+  }
+}
+
+function placeRandom(block,slot){
+
+  for(let r=0;r<size;r++){
+    for(let c=0;c<size;c++){
+
+      if(canPlace(block,r,c)){
+
+        place(block,r,c);
+
+        slot.style.visibility = "hidden";
+
+        score += 10;
+        scoreEl.innerText = score;
+
+        return;
+      }
+    }
+  }
+
+  alert("놓을 공간이 없어요!");
+}
+
+function canPlace(block,row,col){
+
+  for(let r=0;r<block.shape.length;r++){
+    for(let c=0;c<block.shape[0].length;c++){
+
+      if(block.shape[r][c]){
+
+        if(row+r >= size || col+c >= size){
+          return false;
+        }
+
+        if(grid[row+r][col+c]){
+          return false;
+        }
+      }
+    }
+  }
+
+  return true;
+}
+
+function place(block,row,col){
+
+  for(let r=0;r<block.shape.length;r++){
+    for(let c=0;c<block.shape[0].length;c++){
+
+      if(block.shape[r][c]){
+        grid[row+r][col+c] = block.color;
+      }
+    }
+  }
+
+  drawBoard();
+}
+
+startBtn.addEventListener("click",()=>{
+
+  startScreen.classList.add("hidden");
+  gameScreen.classList.remove("hidden");
+
+  initBoard();
+  drawBoard();
+  renderBlocks();
+});
+</script>
+
+</body>
+</html>
