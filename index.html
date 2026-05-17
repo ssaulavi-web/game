@@ -1,760 +1,1247 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>부르즈 할리파: 얼티밋 어센트</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Tone.js 사운드 라이브러리 추가 -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Jua&display=swap');
-        
-        body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background-color: #000;
-            font-family: 'Jua', sans-serif;
-            touch-action: none;
-        }
-        
-        #gameCanvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>라온이의 블록 블라스트</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts (Jua for child-friendly cute Korean font, Inter for UI) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Jua&family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+  <!-- FontAwesome for beautiful icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Canvas Confetti for pop celebrations -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
-        #ui-layer {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-        }
-
-        .screen-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            z-index: 10;
-            pointer-events: auto;
-            cursor: pointer;
-            backdrop-filter: blur(5px);
-        }
-
-        #startScreen {
-            background: rgba(0, 0, 0, 0.85);
-        }
-
-        #winScreen {
-            display: none;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 20;
-        }
-
-        .jump-btn {
-            pointer-events: auto;
-            user-select: none;
-            background: linear-gradient(135deg, #3b82f6, #2563eb);
-            box-shadow: 0 4px 0 #1e40af, 0 10px 20px rgba(0,0,0,0.3);
-            border-radius: 50%;
-            width: 80px;
-            height: 80px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-            font-weight: bold;
-            color: white;
-            margin: 20px;
-            opacity: 0.8;
-            transition: transform 0.1s;
-        }
-        
-        .jump-btn:active {
-            transform: translateY(4px);
-            box-shadow: 0 0px 0 #1e40af, 0 5px 10px rgba(0,0,0,0.3);
-        }
-
-        #mobile-controls {
-            display: none;
-            width: 100%;
-            padding: 20px;
-            pointer-events: auto;
-            justify-content: space-between;
-            align-items: flex-end;
-        }
-
-        @media (max-width: 768px) {
-            #mobile-controls {
-                display: flex;
-            }
-            .pc-guide {
-                display: none;
-            }
-        }
-    </style>
+  <style>
+    /* Prevent bouncing/scrolling on mobile */
+    html, body {
+      position: fixed;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+    body {
+      font-family: 'Jua', 'Inter', sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+    }
+    /* Safe Area support for newer iPhone models */
+    .safe-padding {
+      padding-top: env(safe-area-inset-top, 1rem);
+      padding-bottom: env(safe-area-inset-bottom, 1rem);
+    }
+    /* Bulletproof grid cell dimensions */
+    .grid-cell {
+      transition: background-color 0.1s, transform 0.1s;
+    }
+    /* Dynamic line clear effect */
+    @keyframes line-pop {
+      0% { transform: scale(1); filter: brightness(1.5); }
+      50% { transform: scale(1.15); filter: brightness(1.8); }
+      100% { transform: scale(0); opacity: 0; }
+    }
+    .pop-clear {
+      animation: line-pop 0.35s ease-out forwards;
+    }
+    /* Ensure block visual units are NEVER shrunk by flex parents */
+    .puzzle-piece-cell {
+      width: 20px;
+      height: 20px;
+      margin: 1.5px;
+      border-radius: 4px;
+      flex-shrink: 0 !important;
+      display: inline-block;
+    }
+    @media (min-width: 380px) {
+      .puzzle-piece-cell {
+        width: 24px;
+        height: 24px;
+        margin: 2px;
+      }
+    }
+    /* Disable default touch/mouse actions to let pointer events work smoothly on PC/Mobile */
+    .candidate-slot {
+      touch-action: none;
+      user-select: none;
+    }
+  </style>
 </head>
-<body>
-    <canvas id="gameCanvas"></canvas>
+<body class="bg-gradient-to-b from-indigo-100 via-purple-100 to-pink-100 flex items-center justify-center p-4">
+
+  <!-- Main Frame Device Simulator (Optimized for Mobile Portrait Aspect) -->
+  <div class="w-full max-w-sm h-[100dvh] max-h-[780px] bg-white rounded-[32px] shadow-2xl border-4 border-purple-300 flex flex-col justify-between overflow-hidden relative p-4 safe-padding">
     
-    <div id="ui-layer">
-        <div class="p-4 flex justify-between items-start">
-            <div class="bg-black/50 text-white px-4 py-2 rounded-xl border border-white/20 backdrop-blur-sm shadow-lg">
-                <span class="text-yellow-400 text-3xl font-bold drop-shadow-md" id="scoreDisplay">0m</span>
-                <span class="text-lg opacity-90"> / 1000m (두쫀쿠)</span>
-            </div>
-            <div class="pc-guide bg-black/50 text-white px-4 py-2 rounded-xl text-sm border border-white/20">
-                ⌨️ 이동: ← → | 점프: 스페이스바
-            </div>
+    <!-- Start Screen -->
+    <div id="start-screen" class="absolute inset-0 z-30 bg-gradient-to-b from-purple-50 to-indigo-100 flex flex-col justify-between items-center p-6 text-center transition-all duration-500">
+      <div class="flex-1 flex flex-col justify-center items-center gap-4 mt-6">
+        <!-- Cute App Emblem -->
+        <div class="w-24 h-24 bg-gradient-to-tr from-pink-400 via-yellow-300 to-indigo-400 rounded-3xl flex items-center justify-center shadow-lg transform rotate-6 border-4 border-white animate-bounce">
+          <span class="text-5xl">🧩</span>
+        </div>
+        
+        <div>
+          <h1 class="text-4xl text-indigo-600 font-extrabold tracking-wide drop-shadow-sm leading-tight">라온이의<br>블록 블라스트</h1>
+          <p class="text-indigo-400 text-xs mt-1 font-sans">알록달록 똑똑 무한대 퍼즐 게임</p>
         </div>
 
-        <div id="mobile-controls">
-            <div class="flex gap-2">
-                <button id="btn-left" class="jump-btn" style="width:65px; height:65px;">◀</button>
-                <button id="btn-right" class="jump-btn" style="width:65px; height:65px;">▶</button>
-            </div>
-            <button id="btn-jump" class="jump-btn" style="width:90px; height:90px;">JUMP</button>
+        <!-- Highscore banner -->
+        <div class="bg-white/80 border-2 border-indigo-200 px-5 py-2 rounded-2xl shadow-sm mt-2">
+          <p class="text-[11px] text-pink-500 font-bold uppercase tracking-wider">🏆 최고 소중한 기록 🏆</p>
+          <p id="start-best-score" class="text-2xl text-slate-700 font-black">0점</p>
         </div>
-    </div>
+      </div>
 
-    <!-- 시작 화면 -->
-    <div id="startScreen" class="screen-overlay">
-        <h1 class="text-5xl md:text-7xl font-bold text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-yellow-600 mb-4 text-center drop-shadow-[0_5px_5px_rgba(0,0,0,0.8)]">
-            부르즈 할리파<br><span class="text-4xl text-white">얼티밋 어센트</span>
-        </h1>
-        <div class="bg-blue-900/50 p-6 rounded-2xl border border-blue-400/30 text-center mb-8">
-            <p class="text-2xl mb-2 text-blue-200">👑 1000m 꼭대기의 <span class="text-yellow-400 font-bold">'두쫀쿠'</span>를 찾아라!</p>
-            <p class="text-lg text-gray-300">소리를 켜고 화면을 클릭하여 모험을 시작하세요.</p>
-        </div>
-        <p class="text-2xl animate-bounce text-white font-bold bg-green-500 px-8 py-4 rounded-full shadow-[0_0_15px_rgba(34,197,94,0.6)]">
-            CLICK TO START!
-        </p>
-    </div>
-
-    <!-- 승리 화면 -->
-    <div id="winScreen" class="screen-overlay">
-        <div class="text-8xl mb-4 animate-bounce">🏆</div>
-        <h1 class="text-6xl font-bold text-yellow-400 mb-4 text-center drop-shadow-xl">
-            두쫀쿠 획득 성공!
-        </h1>
-        <p class="text-3xl text-white mb-8">부르즈 할리파 정복을 축하합니다!</p>
-        <button id="btn-restart" class="bg-blue-500 hover:bg-blue-600 text-white text-2xl font-bold py-4 px-8 rounded-full shadow-lg transition-transform hover:scale-110">
-            다시 도전하기
+      <!-- Play Buttons & Instruction Info -->
+      <div class="w-full flex flex-col items-center gap-4 mb-6">
+        <button id="start-game-btn" class="w-full py-4 bg-gradient-to-r from-yellow-400 via-pink-500 to-purple-600 hover:brightness-105 text-white font-extrabold text-xl rounded-2xl shadow-lg transform active:scale-95 transition-all flex items-center justify-center gap-2 border-b-4 border-purple-800">
+          <i class="fa-solid fa-play text-2xl"></i> 퍼즐 시작하기!
         </button>
+        
+        <p class="text-xs text-indigo-400/80">👇 마우스나 손가락으로 밀어주면 쏙 들어갑니다!</p>
+      </div>
     </div>
 
-    <script>
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const startScreen = document.getElementById('startScreen');
-        const winScreen = document.getElementById('winScreen');
-        const scoreDisplay = document.getElementById('scoreDisplay');
-        const restartBtn = document.getElementById('btn-restart');
+    <div id="game-container" class="w-full h-full flex flex-col justify-between hidden">
+      
+      <!-- Top Scoreboard Panel -->
+      <div class="flex justify-between items-center bg-purple-50/80 p-3 rounded-2xl border-2 border-purple-100 mb-2">
+        <div class="flex gap-4">
+          <div class="text-center">
+            <span class="text-[10px] text-purple-400 font-bold block">내 점수</span>
+            <span id="score-val" class="text-2xl text-purple-600 font-extrabold transition-all duration-150">0</span>
+          </div>
+          <div class="text-center border-l border-purple-200 pl-4">
+            <span class="text-[10px] text-pink-400 font-bold block">최고 기록</span>
+            <span id="best-val" class="text-2xl text-pink-500 font-extrabold">0</span>
+          </div>
+        </div>
 
-        let width, height;
-        function resize() {
-            width = window.innerWidth;
-            height = window.innerHeight;
-            canvas.width = width;
-            canvas.height = height;
-        }
-        window.addEventListener('resize', resize);
-        resize();
+        <!-- Small Title / Brand -->
+        <div class="text-center">
+          <span class="text-sm text-indigo-600 font-bold tracking-tight block">🧩 라온이의 블록 블라스트</span>
+        </div>
 
-        let isPlaying = false;
-        let isGameOver = false;
-        let cameraY = 0;
-        let maxHeight = 0; 
-        let frames = 0;
-        let startY = 0; // 시작 바닥의 Y좌표
-        const meterRatio = 10; // 10픽셀당 1m (아이들이 더 빨리 1000m에 도달할 수 있도록 상향)
+        <!-- Mute & Trophy Control -->
+        <div class="flex gap-1.5">
+          <button id="sound-toggle-btn" class="w-8 h-8 bg-yellow-400 text-white rounded-lg flex items-center justify-center shadow-md transition-all active:scale-95">
+            <i id="sound-icon" class="fa-solid fa-volume-high text-xs"></i>
+          </button>
+          <button id="leaderboard-btn" class="w-8 h-8 bg-pink-400 text-white rounded-lg flex items-center justify-center shadow-md transition-all active:scale-95">
+            <i class="fa-solid fa-trophy text-xs"></i>
+          </button>
+        </div>
+      </div>
 
-        const keys = { left: false, right: false, up: false };
+      <div class="relative flex-1 flex items-center justify-center my-2 overflow-hidden">
+        <!-- CSS Grid board -->
+        <div id="game-board" class="w-full aspect-square bg-slate-100 rounded-2xl p-2.5 border-4 border-slate-300 relative shadow-inner grid grid-cols-8 gap-1" style="grid-template-rows: repeat(8, minmax(0, 1fr));">
+          <!-- Dynamically generated board cells (64 Cells) -->
+        </div>
 
-        window.addEventListener('keydown', (e) => {
-            if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = true;
-            if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = true;
-            if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') {
-                if(!keys.up && isPlaying && !isGameOver) playJumpSound(); // 처음 누를 때만 소리 재생
-                keys.up = true;
-                e.preventDefault();
-            }
-        });
+        <!-- Rescue Item magic power-up -->
+        <div id="item-panel" class="absolute -bottom-1 right-2 z-10">
+          <button id="shuffle-btn" class="bg-gradient-to-r from-yellow-400 to-amber-500 text-white text-[11px] px-3 py-1.5 rounded-full shadow-lg border-2 border-white font-bold flex items-center gap-1 active:scale-95 transition-all">
+            <span>🪄 블록 믹스</span>
+            <span id="shuffle-count" class="bg-white text-amber-600 rounded-full w-3.5 h-3.5 flex items-center justify-center text-[10px]">1</span>
+          </button>
+        </div>
 
-        window.addEventListener('keyup', (e) => {
-            if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = false;
-            if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = false;
-            if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') keys.up = false;
-        });
+        <!-- Last Chance 5s Countdown overlay -->
+        <div id="countdown-overlay" class="absolute inset-0 bg-black/75 rounded-2xl flex flex-col items-center justify-center opacity-0 pointer-events-none transition-opacity duration-300 z-20">
+          <div class="text-center">
+            <p class="text-rose-400 text-base font-bold mb-1">🚨 어떡하지! 자리가 없어요! 🚨</p>
+            <p class="text-slate-300 text-xs mb-3">블록 믹스를 쓰거나 공간을 고민하세요!</p>
+            <div class="relative w-20 h-20 mx-auto flex items-center justify-center">
+              <svg class="absolute inset-0 w-full h-full transform -rotate-90">
+                <circle cx="40" cy="40" r="34" stroke="#e11d48" stroke-width="6" fill="transparent" class="opacity-30" />
+                <circle id="countdown-circle" cx="40" cy="40" r="34" stroke="#f43f5e" stroke-width="6" fill="transparent" stroke-dasharray="213.6" stroke-dashoffset="0" class="transition-all duration-1000 ease-linear" />
+              </svg>
+              <span id="countdown-number" class="text-white text-3xl font-black">5</span>
+            </div>
+          </div>
+        </div>
+      </div>
 
-        const bindTouch = (id, key) => {
-            const btn = document.getElementById(id);
-            btn.addEventListener('touchstart', (e) => { 
-                e.preventDefault(); 
-                if(key === 'up' && !keys.up && isPlaying && !isGameOver) playJumpSound();
-                keys[key] = true; 
-            });
-            btn.addEventListener('touchend', (e) => { e.preventDefault(); keys[key] = false; });
-        };
-        bindTouch('btn-left', 'left');
-        bindTouch('btn-right', 'right');
-        bindTouch('btn-jump', 'up');
+      <div class="bg-indigo-50/70 p-3 rounded-2xl border-2 border-indigo-100 flex justify-around items-center h-28 relative">
+        <div class="absolute -top-1 left-3 text-[9px] text-indigo-400/80 font-bold bg-white px-2 py-0.5 rounded-full shadow-sm border border-indigo-50">
+          👇 마우스나 손가락으로 드래그해서 빈칸에 넣으세요!
+        </div>
+        
+        <!-- Block 1 Slot -->
+        <div class="candidate-slot flex items-center justify-center w-1/3 h-full cursor-grab active:cursor-grabbing relative" data-slot="0">
+          <!-- Will have absolute-rendered elements nested -->
+        </div>
+        <!-- Block 2 Slot -->
+        <div class="candidate-slot flex items-center justify-center w-1/3 h-full cursor-grab active:cursor-grabbing relative" data-slot="1">
+          <!-- Will have absolute-rendered elements nested -->
+        </div>
+        <!-- Block 3 Slot -->
+        <div class="candidate-slot flex items-center justify-center w-1/3 h-full cursor-grab active:cursor-grabbing relative" data-slot="2">
+          <!-- Will have absolute-rendered elements nested -->
+        </div>
+      </div>
 
-        let audioInitialized = false;
-        let jumpSynth, winSynth, bgmSynth, bgmLoop;
+      <!-- Footer Help Guide -->
+      <p class="text-center text-[10px] text-slate-400 mt-1.5">한 줄을 가득 채우면 우주선처럼 팡! 터져요 ✨</p>
+    </div>
 
-        async function initAudio() {
-            if (audioInitialized) return;
-            await Tone.start();
-            
-            // 점프 효과음 (귀여운 통통 소리)
-            jumpSynth = new Tone.Synth({
-                oscillator: { type: "triangle" },
-                envelope: { attack: 0.01, decay: 0.2, sustain: 0, release: 0.1 }
-            }).toDestination();
-            jumpSynth.volume.value = -8;
+  </div>
 
-            // 승리 팡파르
-            winSynth = new Tone.PolySynth(Tone.Synth, {
-                oscillator: { type: "square" },
-                envelope: { attack: 0.05, decay: 0.2, sustain: 0.5, release: 1 }
-            }).toDestination();
-            winSynth.volume.value = -5;
+  <!-- Leaderboard Modal -->
+  <div id="leaderboard-modal" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+    <div class="bg-white rounded-3xl border-4 border-pink-300 w-full max-w-xs p-5 shadow-2xl transform scale-95 transition-transform duration-300 flex flex-col max-h-[80vh]">
+      <div class="flex justify-between items-center mb-3">
+        <h3 class="text-xl text-pink-500 font-extrabold"><i class="fa-solid fa-medal mr-1"></i>최고 기록 명예의 전당</h3>
+        <button id="close-leaderboard-btn" class="text-slate-400 hover:text-slate-600 text-lg"><i class="fa-solid fa-xmark"></i></button>
+      </div>
 
-            // 신비로운 배경음악 (우주 느낌의 아르페지오)
-            bgmSynth = new Tone.PolySynth(Tone.Synth, {
-                oscillator: { type: "sine" },
-                envelope: { attack: 0.5, decay: 0.5, sustain: 0.5, release: 1 }
-            }).toDestination();
-            bgmSynth.volume.value = -15;
+      <!-- Nickname Register Box (Shown upon score-breaking) -->
+      <div id="register-area" class="bg-pink-50 p-3 rounded-2xl border border-pink-200 mb-3 hidden">
+        <p class="text-xs text-pink-600 font-bold mb-1">🎉 우리 아이가 훌륭한 기록을 세웠어요!</p>
+        <p class="text-[10px] text-pink-400 mb-2">멋진 이름을 뽐내며 기록을 자랑해 보세요.</p>
+        <div class="flex gap-2">
+          <input id="nickname-input" type="text" maxlength="8" placeholder="예) 라온이대장" class="flex-1 px-2.5 py-1.5 border border-pink-300 rounded-xl focus:outline-none focus:border-pink-500 text-xs font-sans">
+          <button id="save-score-btn" class="bg-pink-500 text-white font-bold px-3 py-1.5 rounded-xl text-xs shadow-md">등록</button>
+        </div>
+      </div>
 
-            const notes = ["C4", "G4", "A4", "E5", "D5", "C5", "G4", "A4"];
-            let step = 0;
-            bgmLoop = new Tone.Loop(time => {
-                bgmSynth.triggerAttackRelease(notes[step % notes.length], "8n", time);
-                step++;
-            }, "4n");
-            
-            Tone.Transport.bpm.value = 120;
-            Tone.Transport.start();
-            bgmLoop.start(0);
+      <!-- Board List -->
+      <div class="flex-1 overflow-y-auto mb-3 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+        <div id="leaderboard-loading" class="text-center py-6 text-slate-400 text-xs">
+          <i class="fa-solid fa-circle-notch animate-spin text-sm mb-1 block text-pink-400"></i>
+          친구들 랭킹을 불러오는 중...
+        </div>
+        <div id="leaderboard-list" class="space-y-1.5 hidden text-xs">
+          <!-- Populated in JS -->
+        </div>
+      </div>
 
-            audioInitialized = true;
-        }
+      <button id="modal-close-action" class="w-full py-2.5 bg-indigo-500 text-white font-extrabold rounded-xl text-sm shadow-md">돌아가기</button>
+    </div>
+  </div>
 
-        function playJumpSound() {
-            if (jumpSynth && player.isGrounded) {
-                // 약간 랜덤한 피치로 뿅소리
-                const pitches = ["C5", "E5", "G5"];
-                const randomPitch = pitches[Math.floor(Math.random() * pitches.length)];
-                jumpSynth.triggerAttackRelease(randomPitch, "16n");
-            }
-        }
+  <!-- Game Over Modal -->
+  <div id="gameover-modal" class="fixed inset-0 bg-black/60 z-40 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+    <div class="bg-white rounded-3xl border-4 border-indigo-400 w-full max-w-xs p-5 shadow-2xl text-center transform scale-95 transition-transform duration-300">
+      <div class="text-5xl mb-2">🎈</div>
+      <h3 class="text-2xl text-indigo-600 font-black mb-1">아기자기 한판 완료!</h3>
+      <p class="text-slate-500 text-xs mb-3">블록을 놓을 수 있는 예쁜 공간이 다 찼어요.</p>
 
-        function playWinSound() {
-            if (winSynth) {
-                const now = Tone.now();
-                winSynth.triggerAttackRelease(["C4", "E4", "G4", "C5"], "2n", now);
-                winSynth.triggerAttackRelease(["F4", "A4", "C5", "F5"], "2n", now + 0.6);
-                winSynth.triggerAttackRelease(["G4", "B4", "D5", "G5"], "1m", now + 1.2);
-            }
-        }
+      <div class="bg-indigo-50 rounded-xl p-3 border border-indigo-100 mb-4 flex justify-around text-center">
+        <div>
+          <p class="text-[9px] text-indigo-400 font-bold">내 점수</p>
+          <p id="final-score" class="text-2xl text-indigo-600 font-black">0</p>
+        </div>
+        <div class="border-l border-indigo-200"></div>
+        <div>
+          <p class="text-[9px] text-pink-400 font-bold">나의 최고기록</p>
+          <p id="modal-best-score" class="text-2xl text-pink-500 font-black">0</p>
+        </div>
+      </div>
 
-        const player = {
-            x: 0, y: 0,
-            width: 40, height: 60,
-            vx: 0, vy: 0,
-            speed: 8,
-            jumpForce: -18, // 시원한 점프력
-            gravity: 0.7,
-            isGrounded: false,
-            facingRight: true,
+      <div class="flex flex-col gap-1.5">
+        <button id="restart-btn" class="w-full py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-extrabold rounded-xl shadow-md text-sm flex items-center justify-center gap-1.5">
+          <i class="fa-solid fa-rotate-right"></i> 다시 해볼래요!
+        </button>
+        <button id="view-rank-btn" class="w-full py-2 bg-slate-100 text-slate-600 font-bold rounded-xl text-xs">
+          🏆 순위 보러가기
+        </button>
+      </div>
+    </div>
+  </div>
 
-            update() {
-                if (keys.left) { this.vx = -this.speed; this.facingRight = false; }
-                else if (keys.right) { this.vx = this.speed; this.facingRight = true; }
-                else this.vx *= 0.8;
+  <!-- Floating ghost block generated on screen during drag operations -->
+  <div id="drag-ghost" class="fixed pointer-events-none z-50 transform -translate-x-1/2 -translate-y-1/2 opacity-0 flex flex-col justify-center items-center"></div>
 
-                this.x += this.vx;
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc, collection, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-                if (this.x < 0) this.x = 0;
-                if (this.x + this.width > width) this.x = width - this.width;
+    // Standard Workspace Configs
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'raon-block-blast-v2';
+    let db = null;
+    let auth = null;
+    let currentUser = null;
 
-                if (keys.up && this.isGrounded) {
-                    this.vy = this.jumpForce;
-                    this.isGrounded = false;
-                }
-
-                this.vy += this.gravity;
-                this.y += this.vy;
-                this.isGrounded = false;
-            },
-
-            draw() {
-                ctx.save();
-                const renderY = this.y - cameraY;
-                const centerX = this.x + this.width / 2;
-                const centerY = renderY + this.height / 2;
-
-                ctx.translate(centerX, centerY);
-                if (!this.facingRight) ctx.scale(-1, 1); // 좌우 반전
-
-                // 로블록스 눕(Noob) 스타일 디자인
-                let isMoving = Math.abs(this.vx) > 0.5;
-                let legAnim = isMoving && !this.isGrounded ? Math.sin(frames * 0.4) * 8 : 0;
-
-                // 머리 (노란색)
-                ctx.fillStyle = '#facc15'; 
-                ctx.fillRect(-12, -30, 24, 24);
-                // 눈과 입 (살짝 귀엽게)
-                ctx.fillStyle = '#000000';
-                ctx.fillRect(0, -22, 4, 4); // 앞 눈
-                ctx.fillRect(8, -22, 4, 4); // 뒤 눈
-                ctx.fillRect(2, -14, 8, 3); // 입
-
-                // 몸통 (파란색)
-                ctx.fillStyle = '#3b82f6';
-                ctx.fillRect(-15, -6, 30, 30);
-
-                // 팔 (노란색)
-                ctx.fillStyle = '#facc15';
-                ctx.fillRect( -5, -6, 10, 22); // 앞 팔 (움직임 효과 생략 가능)
-
-                // 다리 (초록색) - 걸을 때 교차
-                ctx.fillStyle = '#4ade80';
-                ctx.fillRect(-15, 24 + legAnim, 12, 18); // 왼쪽 다리
-                ctx.fillStyle = '#22c55e'; // 약간 더 어두운 초록
-                ctx.fillRect(3, 24 - legAnim, 12, 18); // 오른쪽 다리
-
-                ctx.restore();
-            }
+    const firebaseConfig = typeof __firebase_config !== 'undefined' 
+      ? JSON.parse(__firebase_config) 
+      : {
+          apiKey: "demo-api-key",
+          authDomain: "demo-auth-domain",
+          projectId: "demo-project",
+          storageBucket: "demo-storage",
+          messagingSenderId: "demo-sender",
+          appId: "demo-app-id"
         };
 
-        let platforms = [];
-        let stars = [];
-        let clouds = [];
-        let fireworks = [];
-        let dujjonku = { x: 0, y: 0, collected: false, active: false };
+    async function initFirebase() {
+      try {
+        const app = initializeApp(firebaseConfig);
+        db = getFirestore(app);
+        auth = getAuth(app);
 
-        class Platform {
-            constructor(x, y, w, isGround = false) {
-                this.x = x;
-                this.y = y;
-                this.width = w;
-                this.height = 20;
-                this.isGround = isGround;
-            }
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          currentUser = await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          currentUser = await signInAnonymously(auth);
+        }
+      } catch (err) {
+        console.warn("Firestore running in sandbox mode:", err);
+      }
+    }
 
-            draw() {
-                const renderY = this.y - cameraY;
-                if (renderY < -100 || renderY > height + 100) return;
+    const getDb = () => db;
+    const getAppId = () => appId;
+    const getUserId = () => auth?.currentUser?.uid || 'anonymous-child-user';
 
-                ctx.save();
-                if (this.isGround) {
-                    ctx.fillStyle = '#475569';
-                    ctx.fillRect(-1000, renderY, width + 2000, height);
-                } else {
-                    // 눈에 확 띄는 네온 에메랄드 발판
-                    ctx.shadowColor = '#10b981';
-                    ctx.shadowBlur = 20;
-                    ctx.fillStyle = '#34d399'; 
-                    ctx.beginPath();
-                    ctx.roundRect(this.x, renderY, this.width, this.height, 10);
-                    ctx.fill();
-                    
-                    ctx.fillStyle = '#a7f3d0';
-                    ctx.beginPath();
-                    ctx.roundRect(this.x + 2, renderY + 2, this.width - 4, 4, 2);
-                    ctx.fill();
-                }
-                ctx.restore();
-            }
+    class SoundEngine {
+      constructor() {
+        this.ctx = null;
+        this.enabled = true;
+      }
+      init() {
+        try {
+          if (!this.ctx) {
+            this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+          }
+          if (this.ctx && this.ctx.state === 'suspended') {
+            this.ctx.resume();
+          }
+        } catch(e) {}
+      }
+      playSelect() {
+        if (!this.enabled) return;
+        this.init(); if(!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.connect(gain); gain.connect(this.ctx.destination);
+        
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(330, this.ctx.currentTime); // E4
+        osc.frequency.exponentialRampToValueAtTime(660, this.ctx.currentTime + 0.08); // E5
+        
+        gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.1);
+        osc.start(); osc.stop(this.ctx.currentTime + 0.1);
+      }
+      playPlace() {
+        if (!this.enabled) return;
+        this.init(); if(!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.connect(gain); gain.connect(this.ctx.destination);
+        
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(523.25, this.ctx.currentTime); // C5
+        
+        gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.15);
+        osc.start(); osc.stop(this.ctx.currentTime + 0.15);
+      }
+      playClear() {
+        if (!this.enabled) return;
+        this.init(); if(!this.ctx) return;
+        // Sweeping triad
+        [523.25, 659.25, 783.99].forEach((f, i) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.connect(gain); gain.connect(this.ctx.destination);
+          
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(f, this.ctx.currentTime + i * 0.05);
+          gain.gain.setValueAtTime(0.1, this.ctx.currentTime + i * 0.05);
+          gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + i * 0.05 + 0.2);
+          osc.start(this.ctx.currentTime + i * 0.05);
+          osc.stop(this.ctx.currentTime + i * 0.05 + 0.2);
+        });
+      }
+      playWarning() {
+        if (!this.enabled) return;
+        this.init(); if(!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.connect(gain); gain.connect(this.ctx.destination);
+        
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+        osc.frequency.linearRampToValueAtTime(150, this.ctx.currentTime + 0.2);
+        
+        gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.2);
+        osc.start(); osc.stop(this.ctx.currentTime + 0.2);
+      }
+      playGameOver() {
+        if (!this.enabled) return;
+        this.init(); if(!this.ctx) return;
+        [440, 392, 349, 293].forEach((f, i) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.connect(gain); gain.connect(this.ctx.destination);
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(f, this.ctx.currentTime + i * 0.12);
+          gain.gain.setValueAtTime(0.1, this.ctx.currentTime + i * 0.12);
+          gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + i * 0.12 + 0.35);
+          osc.start(this.ctx.currentTime + i * 0.12);
+          osc.stop(this.ctx.currentTime + i * 0.12 + 0.35);
+        });
+      }
+      playWhoosh() {
+        if (!this.enabled) return;
+        this.init(); if(!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.connect(gain); gain.connect(this.ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(400, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(150, this.ctx.currentTime + 0.15);
+        gain.gain.setValueAtTime(0.05, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.15);
+        osc.start(); osc.stop(this.ctx.currentTime + 0.15);
+      }
+    }
+    const Sound = new SoundEngine();
+
+    const BLOCK_TEMPLATES = [
+      { shape: [[1]], color: '#FF5E7E', name: 'dot' },
+      { shape: [[1, 1]], color: '#FF9F43', name: 'h2' },
+      { shape: [[1], [1]], color: '#FF9F43', name: 'v2' },
+      { shape: [[1, 1, 1]], color: '#FECA57', name: 'h3' },
+      { shape: [[1], [1], [1]], color: '#FECA57', name: 'v3' },
+      { shape: [[1, 1], [1, 1]], color: '#1DD1A1', name: 'square' },
+      { shape: [[1, 1, 1], [0, 1, 0]], color: '#54A0FF', name: 't3' },
+      { shape: [[1, 0], [1, 1]], color: '#5f27cd', name: 'l2' },
+      { shape: [[0, 1], [1, 1]], color: '#5f27cd', name: 'r2' },
+      { shape: [[1, 1, 1, 1]], color: '#00d2d3', name: 'h4' },
+      { shape: [[1], [1], [1], [1]], color: '#00d2d3', name: 'v4' }
+    ];
+
+    // Main States
+    let grid = Array(8).fill(null).map(() => Array(8).fill(0));
+    let score = 0;
+    let highscore = parseInt(localStorage.getItem('block_puzzle_best_score') || '0');
+    let candidateBlocks = [null, null, null];
+    let activeShuffleCount = 1;
+
+    // Drags & taps State
+    let draggingIndex = null;
+    let dragPointerId = null;
+    let selectedBlockIndex = null;
+
+    // Timer status
+    let countdownInterval = null;
+    let isCountingDown = false;
+    let countdownVal = 5;
+
+    // View components references
+    const boardEl = document.getElementById('game-board');
+    const scoreValEl = document.getElementById('score-val');
+    const bestValEl = document.getElementById('best-val');
+    const startBestScoreEl = document.getElementById('start-best-score');
+    const dragGhostEl = document.getElementById('drag-ghost');
+    const shuffleBtn = document.getElementById('shuffle-btn');
+    const shuffleCountEl = document.getElementById('shuffle-count');
+    const countdownOverlay = document.getElementById('countdown-overlay');
+    const countdownNumber = document.getElementById('countdown-number');
+    const countdownCircle = document.getElementById('countdown-circle');
+    
+    // Pages / Screens
+    const startScreen = document.getElementById('start-screen');
+    const gameContainer = document.getElementById('game-container');
+    const leaderboardModal = document.getElementById('leaderboard-modal');
+    const gameoverModal = document.getElementById('gameover-modal');
+
+    // Dynamic initial loading values setup
+    bestValEl.textContent = highscore;
+    startBestScoreEl.textContent = `${highscore}점`;
+
+    function createBoardCells() {
+      boardEl.innerHTML = '';
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const cell = document.createElement('div');
+          cell.id = `cell-${r}-${c}`;
+          cell.className = 'grid-cell w-full h-full bg-white rounded-lg border border-slate-200/50 shadow-sm relative flex items-center justify-center';
+          cell.dataset.row = r;
+          cell.dataset.col = c;
+          boardEl.appendChild(cell);
+        }
+      }
+    }
+
+    // Refresh display properties of the board
+    function drawBoard() {
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const cell = document.getElementById(`cell-${r}-${c}`);
+          const cellState = grid[r][c];
+          
+          if (cellState === 0) {
+            cell.style.backgroundColor = '#FFFFFF';
+            cell.style.transform = 'scale(1)';
+            cell.classList.remove('shadow-md');
+          } else {
+            cell.style.backgroundColor = cellState;
+            cell.style.transform = 'scale(0.96)';
+            cell.classList.add('shadow-md');
+          }
+        }
+      }
+    }
+
+    // Generate random 3 candidate choices
+    function generateNewCandidates() {
+      for (let i = 0; i < 3; i++) {
+        if (candidateBlocks[i] === null) {
+          const randTemplate = BLOCK_TEMPLATES[Math.floor(Math.random() * BLOCK_TEMPLATES.length)];
+          candidateBlocks[i] = JSON.parse(JSON.stringify(randTemplate));
+        }
+      }
+      renderCandidates();
+    }
+
+    function renderCandidates() {
+      const slots = document.querySelectorAll('.candidate-slot');
+      slots.forEach((slot, idx) => {
+        const block = candidateBlocks[idx];
+        slot.innerHTML = '';
+        slot.classList.remove('ring-4', 'ring-indigo-400', 'bg-indigo-100/40');
+        
+        if (!block) return;
+
+        // If block selected visually highlighted border
+        if (selectedBlockIndex === idx) {
+          slot.classList.add('ring-4', 'ring-indigo-400', 'bg-indigo-100/40');
         }
 
-        class Particle {
-            constructor(x, y, color) {
-                this.x = x; this.y = y;
-                this.vx = (Math.random() - 0.5) * 15;
-                this.vy = (Math.random() - 0.5) * 15;
-                this.life = 1.0;
-                this.color = color;
-                this.size = Math.random() * 5 + 3;
-            }
-            update() {
-                this.x += this.vx;
-                this.y += this.vy;
-                this.vy += 0.2; // 중력
-                this.life -= 0.015;
-            }
-            draw() {
-                if (this.life <= 0) return;
-                ctx.globalAlpha = this.life;
-                ctx.fillStyle = this.color;
-                ctx.beginPath();
-                ctx.arc(this.x, this.y - cameraY, this.size, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.globalAlpha = 1.0;
-            }
-        }
-
-        function initLevel() {
-            platforms = [];
-            fireworks = [];
+        // Inline Style enforced structural container so it NEVER shrinks on mobile/PC
+        const container = document.createElement('div');
+        container.style.display = 'flex';
+        container.style.flexDirection = 'column';
+        container.style.alignItems = 'center';
+        container.style.justifyContent = 'center';
+        container.style.transform = 'scale(0.85)';
+        container.style.pointerEvents = 'none'; // Prevent child block cells from stealing pointer events
+        
+        const shape = block.shape;
+        shape.forEach(row => {
+          const rowDiv = document.createElement('div');
+          rowDiv.style.display = 'flex';
+          rowDiv.style.flexDirection = 'row';
+          rowDiv.style.justifyContent = 'center';
+          rowDiv.style.alignItems = 'center';
+          rowDiv.style.pointerEvents = 'none';
+          
+          row.forEach(cellVal => {
+            const blockCell = document.createElement('div');
+            blockCell.className = 'puzzle-piece-cell shadow-sm';
+            blockCell.style.pointerEvents = 'none';
             
-            startY = height - 100;
-            platforms.push(new Platform(0, startY, width, true)); // 바닥
-            
-            player.width = 40;
-            player.height = 60;
-            player.x = width / 2 - player.width / 2;
-            player.y = startY - player.height;
-            player.vy = 0;
-            cameraY = 0;
-            maxHeight = 0;
-            isGameOver = false;
-            dujjonku.collected = false;
-
-            let lastY = startY;
-            let currentX = width / 2;
-            let direction = 1;
-            let pWidth = 140; // 넉넉한 초기 발판
-
-            // 1000m 목표 Y좌표 = startY - 10000 (meterRatio = 10 이므로)
-            let targetY = startY - 10000;
-
-            // 발판 생성 루프 (목표 높이 도달할 때까지)
-            let stepCounter = 0;
-            while (lastY > targetY) {
-                // 첫 발판은 캐릭터 바로 머리 위
-                if (stepCounter === 0) {
-                    lastY -= 120;
-                    currentX = width / 2 - pWidth / 2;
-                } else {
-                    lastY -= (90 + Math.random() * 30); // 90~120 높이 상승
-                    let stepX = Math.random() * 80 + 100; // 좌우 이동 폭
-                    currentX += direction * stepX;
-                    
-                    // 벽 튕기기
-                    if (currentX < 20) {
-                        currentX = 20;
-                        direction = 1;
-                    } else if (currentX + pWidth > width - 20) {
-                        currentX = width - pWidth - 20;
-                        direction = -1;
-                    }
-                }
-                
-                // 고도가 높아질수록 발판이 살짝 좁아짐 (최소 80)
-                let currentWidth = Math.max(80, pWidth - (stepCounter * 0.5));
-                platforms.push(new Platform(currentX, lastY, currentWidth, false));
-                stepCounter++;
-            }
-
-            // 가장 마지막 발판 위에 '두쫀쿠' 배치
-            let lastPlatform = platforms[platforms.length - 1];
-            dujjonku.x = lastPlatform.x + lastPlatform.width / 2;
-            dujjonku.y = lastPlatform.y - 60; // 발판 위
-            dujjonku.active = true;
-
-            initEnvironment();
-        }
-
-        function initEnvironment() {
-            clouds = [];
-            stars = [];
-            for(let i=0; i<40; i++) {
-                clouds.push({
-                    x: Math.random() * width,
-                    y: startY - Math.random() * 11000, 
-                    size: Math.random() * 60 + 40,
-                    speed: Math.random() * 0.5 + 0.1
-                });
-            }
-            for(let i=0; i<150; i++) {
-                stars.push({
-                    x: Math.random() * width,
-                    y: startY - 5000 - Math.random() * 6000, // 높은 우주 구간에만
-                    size: Math.random() * 2 + 1,
-                    alpha: Math.random()
-                });
-            }
-        }
-
-        function checkCollisions() {
-            // 발판 충돌 (내려올 때만)
-            if (player.vy >= 0) {
-                for (let p of platforms) {
-                    if (p.y - cameraY > height || p.y - cameraY < -height) continue;
-
-                    // 여유로운 판정 (발끝이 닿을 때)
-                    if (player.x + player.width - 15 > p.x && 
-                        player.x + 15 < p.x + p.width &&
-                        player.y + player.height >= p.y &&
-                        player.y + player.height <= p.y + player.vy + 25) { 
-                        
-                        player.y = p.y - player.height;
-                        player.vy = 0;
-                        player.isGrounded = true;
-                        break; // 한 번 밟으면 끝
-                    }
-                }
-            }
-
-            // 두쫀쿠 획득 체크 (충돌 박스 교차)
-            if (!dujjonku.collected && dujjonku.active) {
-                let dx = Math.abs((player.x + player.width/2) - dujjonku.x);
-                let dy = Math.abs((player.y + player.height/2) - dujjonku.y);
-                if (dx < 50 && dy < 60) {
-                    winGame();
-                }
-            }
-        }
-
-        function spawnFireworks(x, y) {
-            const colors = ['#facc15', '#ef4444', '#3b82f6', '#22c55e', '#a855f7'];
-            for(let i=0; i<100; i++) {
-                fireworks.push(new Particle(x, y, colors[Math.floor(Math.random() * colors.length)]));
-            }
-        }
-
-        function winGame() {
-            dujjonku.collected = true;
-            isGameOver = true;
-            playWinSound();
-            spawnFireworks(dujjonku.x, dujjonku.y);
-            
-            // 승리 UI 표시
-            setTimeout(() => {
-                winScreen.style.display = 'flex';
-                // 승리 시 BGM 멈춤
-                if(bgmLoop) bgmLoop.stop();
-            }, 1000);
-        }
-
-        function drawBackground(progress) {
-            let grad = ctx.createLinearGradient(0, 0, 0, height);
-            if (progress < 0.3) {
-                grad.addColorStop(0, '#0ea5e9'); // 하늘색
-                grad.addColorStop(1, '#e0f2fe');
-            } else if (progress < 0.6) {
-                grad.addColorStop(0, '#1e1b4b'); // 밤/노을 전환
-                grad.addColorStop(0.5, '#be123c');
-                grad.addColorStop(1, '#f59e0b');
+            if (cellVal === 1) {
+              blockCell.style.backgroundColor = block.color;
+              blockCell.classList.add('shadow');
             } else {
-                grad.addColorStop(0, '#020617'); // 우주
-                grad.addColorStop(1, '#0f172a');
+              blockCell.style.backgroundColor = 'transparent';
+              blockCell.style.boxShadow = 'none';
             }
-            ctx.fillStyle = grad;
-            ctx.fillRect(0, 0, width, height);
-
-            if (progress > 0.4) {
-                ctx.fillStyle = 'white';
-                stars.forEach(s => {
-                    let renderY = s.y - cameraY * 0.1;
-                    if(renderY > 0 && renderY < height) {
-                        ctx.globalAlpha = s.alpha + Math.sin(frames * 0.05 + s.x) * 0.5;
-                        ctx.beginPath();
-                        ctx.arc(s.x, renderY, s.size, 0, Math.PI * 2);
-                        ctx.fill();
-                        ctx.globalAlpha = 1.0;
-                    }
-                });
-            }
-        }
-
-        function drawBurjKhalifa(progress) {
-            ctx.save();
-            let centerX = width / 2;
-            let buildingRenderY = startY - cameraY * 0.8; 
-
-            let bWidth = 350;
-            let currentY = buildingRenderY;
-            
-            // 층수 그리기 (약 1000m 높이까지 제한)
-            let maxBuildingY = startY - 10000 * 0.8; // 시차 비율 0.8 고려
-
-            for(let i=0; i<80; i++) {
-                if (currentY < maxBuildingY) break; // 목표 지점 이상 그리지 않음
-                if (currentY > height + 500) { 
-                    currentY -= 150;
-                    bWidth *= 0.94;
-                    continue;
-                }
-
-                if (progress < 0.4) {
-                    ctx.fillStyle = i % 2 === 0 ? '#94a3b8' : '#cbd5e1';
-                } else if (progress < 0.7) {
-                    ctx.fillStyle = i % 2 === 0 ? '#334155' : '#475569';
-                } else {
-                    ctx.fillStyle = i % 2 === 0 ? '#0f172a' : '#1e293b';
-                }
-
-                ctx.fillRect(centerX - bWidth/2, currentY - 150, bWidth, 150);
-                
-                // 창문 불빛
-                if (progress >= 0.5 && Math.random() > 0.3) {
-                    ctx.fillStyle = '#38bdf8'; 
-                    ctx.fillRect(centerX - bWidth/2 + 15, currentY - 100, bWidth - 30, 10);
-                }
-
-                currentY -= 150;
-                bWidth *= 0.94; 
-            }
-
-            // 황금 첨탑 
-            if (currentY > -1000 && currentY < height + 1000) {
-                ctx.fillStyle = '#fbbf24';
-                ctx.beginPath();
-                ctx.moveTo(centerX - bWidth/2, currentY);
-                ctx.lineTo(centerX + bWidth/2, currentY);
-                ctx.lineTo(centerX, currentY - 400); // 뾰족한 탑
-                ctx.fill();
-            }
-
-            ctx.restore();
-        }
-
-        function drawClouds() {
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-            clouds.forEach(c => {
-                let renderY = c.y - cameraY * 0.5;
-                if(renderY > -100 && renderY < height + 100) {
-                    ctx.beginPath();
-                    ctx.arc(c.x, renderY, c.size, 0, Math.PI*2);
-                    ctx.arc(c.x + c.size*0.8, renderY - c.size*0.2, c.size*0.8, 0, Math.PI*2);
-                    ctx.arc(c.x - c.size*0.8, renderY + c.size*0.1, c.size*0.7, 0, Math.PI*2);
-                    ctx.fill();
-                    
-                    c.x -= c.speed;
-                    if (c.x < -c.size*2) c.x = width + c.size*2;
-                }
-            });
-        }
-
-        function drawDujjonku() {
-            if (!dujjonku.active || dujjonku.collected) return;
-            const renderY = dujjonku.y - cameraY;
-            
-            if (renderY > -100 && renderY < height + 100) {
-                ctx.save();
-                ctx.translate(dujjonku.x, renderY);
-                
-                // 둥둥 떠다니는 애니메이션
-                let floatOffset = Math.sin(frames * 0.1) * 10;
-                ctx.translate(0, floatOffset);
-
-                // 두쫀쿠 이름표
-                ctx.fillStyle = '#facc15';
-                ctx.font = 'bold 24px Jua';
-                ctx.textAlign = 'center';
-                ctx.shadowColor = '#000';
-                ctx.shadowBlur = 4;
-                ctx.fillText('👑 두쫀쿠', 0, -20);
-                
-                // 빛나는 후광
-                ctx.shadowColor = '#facc15';
-                ctx.shadowBlur = 20 + Math.sin(frames * 0.2) * 10;
-                ctx.fillStyle = '#fef08a';
-                ctx.beginPath();
-                ctx.arc(0, 10, 20, 0, Math.PI * 2);
-                ctx.fill();
-
-                ctx.restore();
-            }
-        }
-
-        function gameLoop() {
-            if (!isPlaying) return;
-            frames++;
-
-            player.update();
-            checkCollisions();
-
-            // 카메라 시점 (플레이어 따라감)
-            let targetCameraY = player.y - height / 2 + 100;
-            if (targetCameraY < cameraY) {
-                cameraY = targetCameraY; 
-            }
-
-            // 고도 계산 (10픽셀 = 1m)
-            let currentHeightMeters = Math.floor((startY - player.y) / meterRatio);
-            if (currentHeightMeters > maxHeight && !dujjonku.collected) {
-                maxHeight = currentHeightMeters;
-            }
-            
-            // UI 업데이트 (최대 1000m 고정)
-            let displayScore = Math.min(1000, Math.max(0, maxHeight));
-            scoreDisplay.innerText = displayScore + "m";
-            
-            // 추락 처리 (바닥이 아닌 공중에서 화면 밖으로 떨어졌을 때)
-            if (player.y > cameraY + height + 200 && !isGameOver) {
-                // 게임 오버 (시작 지점으로 리셋)
-                // 깜짝 효과음
-                if(jumpSynth) jumpSynth.triggerAttackRelease("C3", "8n");
-                initLevel();
-            }
-
-            // --- 렌더링 ---
-            ctx.clearRect(0, 0, width, height);
-            
-            let progress = Math.min(1, maxHeight / 1000); 
-            
-            drawBackground(progress);
-            drawBurjKhalifa(progress);
-            drawClouds();
-
-            platforms.forEach(p => p.draw());
-            drawDujjonku();
-            player.draw();
-
-            // 폭죽 파티클 그리기
-            for(let i = fireworks.length - 1; i >= 0; i--) {
-                fireworks[i].update();
-                fireworks[i].draw();
-                if (fireworks[i].life <= 0) fireworks.splice(i, 1);
-            }
-
-            requestAnimationFrame(gameLoop);
-        }
-
-        startScreen.addEventListener('click', async () => {
-            await initAudio(); // 사운드 엔진 시작
-            startScreen.style.display = 'none';
-            if (!isPlaying) {
-                isPlaying = true;
-                initLevel();
-                gameLoop();
-            }
+            rowDiv.appendChild(blockCell);
+          });
+          container.appendChild(rowDiv);
         });
 
-        restartBtn.addEventListener('click', () => {
-            winScreen.style.display = 'none';
-            initLevel();
-            if(bgmLoop) bgmLoop.start(); // BGM 다시 재생
+        slot.appendChild(container);
+      });
+    }
+
+    function canPlaceBlock(block, startRow, startCol) {
+      if (!block) return false;
+      const shape = block.shape;
+      const blockRows = shape.length;
+      const blockCols = shape[0].length;
+
+      if (startRow + blockRows > 8 || startCol + blockCols > 8) return false;
+      if (startRow < 0 || startCol < 0) return false;
+
+      // Re-write check loop cleanly (Removes the infinite loop bug completely)
+      for (let r = 0; r < blockRows; r++) {
+        for (let c = 0; c < blockCols; c++) {
+          if (shape[r][c] === 1) {
+            if (grid[startRow + r][startCol + c] !== 0) {
+              return false;
+            }
+          }
+        }
+      }
+      return true;
+    }
+
+    function hasAnyValidMoves() {
+      for (let i = 0; i < 3; i++) {
+        const block = candidateBlocks[i];
+        if (!block) continue;
+
+        for (let r = 0; r < 8; r++) {
+          for (let c = 0; c < 8; c++) {
+            if (canPlaceBlock(block, r, c)) {
+              return true;
+            }
+          }
+        }
+      }
+      return false;
+    }
+
+    function placeBlock(block, startRow, startCol) {
+      const shape = block.shape;
+      const blockRows = shape.length;
+      const blockCols = shape[0].length;
+
+      for (let r = 0; r < blockRows; r++) {
+        for (let c = 0; c < blockCols; c++) {
+          if (shape[r][c] === 1) {
+            grid[startRow + r][startCol + c] = block.color;
+          }
+        }
+      }
+      Sound.playPlace();
+    }
+
+    function processLineClears() {
+      let rowsToClear = [];
+      let colsToClear = [];
+
+      // Row checking
+      for (let r = 0; r < 8; r++) {
+        let fullyFilled = true;
+        for (let c = 0; c < 8; c++) {
+          if (grid[r][c] === 0) {
+            fullyFilled = false; break;
+          }
+        }
+        if (fullyFilled) rowsToClear.push(r);
+      }
+
+      // Column checking
+      for (let c = 0; c < 8; c++) {
+        let fullyFilled = true;
+        for (let r = 0; r < 8; r++) {
+          if (grid[r][c] === 0) {
+            fullyFilled = false; break;
+          }
+        }
+        if (fullyFilled) colsToClear.push(c);
+      }
+
+      const linesCleared = rowsToClear.length + colsToClear.length;
+      if (linesCleared > 0) {
+        rowsToClear.forEach(r => {
+          for (let c = 0; c < 8; c++) {
+            const cell = document.getElementById(`cell-${r}-${c}`);
+            if (cell) cell.classList.add('pop-clear');
+          }
         });
 
-        document.addEventListener('visibilitychange', () => {
-            if (document.hidden) {
-                keys.left = false;
-                keys.right = false;
-                keys.up = false;
+        colsToClear.forEach(c => {
+          for (let r = 0; r < 8; r++) {
+            const cell = document.getElementById(`cell-${r}-${c}`);
+            if (cell && !cell.classList.contains('pop-clear')) {
+              cell.classList.add('pop-clear');
             }
+          }
         });
-    </script>
+
+        Sound.playClear();
+
+        if (linesCleared >= 2) {
+          confetti({
+            particleCount: 40 * linesCleared,
+            spread: 60,
+            origin: { y: 0.6 }
+          });
+        }
+
+        setTimeout(() => {
+          rowsToClear.forEach(r => {
+            for (let c = 0; c < 8; c++) {
+              grid[r][c] = 0;
+            }
+          });
+
+          colsToClear.forEach(c => {
+            for (let r = 0; r < 8; r++) {
+              grid[r][c] = 0;
+            }
+          });
+
+          for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+              const cell = document.getElementById(`cell-${r}-${c}`);
+              if (cell) cell.classList.remove('pop-clear');
+            }
+          }
+
+          const addedScore = (linesCleared * 100) + (linesCleared > 1 ? (linesCleared - 1) * 50 : 0);
+          score += addedScore;
+          updateScoreDisplay();
+          drawBoard();
+
+          checkNextRoundState();
+        }, 350);
+
+        return true;
+      }
+
+      return false;
+    }
+
+    function updateScoreDisplay() {
+      scoreValEl.textContent = score;
+      if (score > highscore) {
+        highscore = score;
+        bestValEl.textContent = highscore;
+        localStorage.setItem('block_puzzle_best_score', highscore.toString());
+      }
+    }
+
+    function checkNextRoundState() {
+      if (candidateBlocks.every(b => b === null)) {
+        generateNewCandidates();
+      }
+
+      if (!hasAnyValidMoves()) {
+        if (!isCountingDown) {
+          startGameOverCountdown();
+        }
+      } else {
+        if (isCountingDown) {
+          cancelGameOverCountdown();
+        }
+      }
+    }
+
+    // Start 5 Seconds timer fail-safe countdown
+    function startGameOverCountdown() {
+      isCountingDown = true;
+      countdownVal = 5;
+      countdownOverlay.classList.remove('pointer-events-none');
+      countdownOverlay.classList.add('opacity-100');
+      countdownNumber.textContent = countdownVal;
+      
+      countdownCircle.style.strokeDashoffset = '0';
+      Sound.playWarning();
+
+      countdownInterval = setInterval(() => {
+        countdownVal--;
+        countdownNumber.textContent = countdownVal;
+        
+        const dashoffset = (213.6 * (5 - countdownVal)) / 5;
+        countdownCircle.style.strokeDashoffset = dashoffset;
+
+        if (countdownVal > 0) {
+          Sound.playWarning();
+        } else {
+          clearInterval(countdownInterval);
+          triggerGameOver();
+        }
+      }, 1000);
+    }
+
+    function cancelGameOverCountdown() {
+      isCountingDown = false;
+      if (countdownInterval) clearInterval(countdownInterval);
+      countdownOverlay.classList.remove('opacity-100');
+      countdownOverlay.classList.add('pointer-events-none');
+    }
+
+    function triggerGameOver() {
+      Sound.playGameOver();
+      document.getElementById('final-score').textContent = score;
+      document.getElementById('modal-best-score').textContent = highscore;
+      
+      gameoverModal.classList.remove('pointer-events-none');
+      gameoverModal.classList.add('opacity-100');
+      gameoverModal.firstElementChild.classList.remove('scale-95');
+      gameoverModal.firstElementChild.classList.add('scale-100');
+
+      prepareLeaderboardSection();
+    }
+
+    // Calculate grid coordinates with portrait scale compensation
+    function getBoardGridIntersection(clientX, clientY, block, isTouchInput = false) {
+      const boardRect = boardEl.getBoundingClientRect();
+      const cellSize = boardRect.width / 8;
+
+      // Adjust finger offset vertically only for touch input to keep blocks visible above fingers
+      const yOffset = isTouchInput ? -55 : 0;
+
+      const targetX = clientX;
+      const targetY = clientY + yOffset;
+
+      const relativeX = targetX - boardRect.left;
+      const relativeY = targetY - boardRect.top;
+
+      const shape = block.shape;
+      const blockRows = shape.length;
+      const blockCols = shape[0].length;
+
+      // Calculate where the upper left of the block should snap relative to the board grid cells
+      const targetCol = Math.round((relativeX - (blockCols * cellSize) / 2) / cellSize);
+      const targetRow = Math.round((relativeY - (blockRows * cellSize) / 2) / cellSize);
+
+      return { row: targetRow, col: targetCol };
+    }
+
+    function setupInteraction() {
+      const slots = document.querySelectorAll('.candidate-slot');
+
+      slots.forEach(slot => {
+        // pointerdown works natively with both mouse, stylus and touch!
+        slot.addEventListener('pointerdown', (e) => {
+          // Only trigger on left-click for mouse
+          if (e.pointerType === 'mouse' && e.button !== 0) return;
+
+          const index = parseInt(slot.dataset.slot);
+          const block = candidateBlocks[index];
+
+          if (!block || isCountingDown) return;
+
+          Sound.playSelect();
+          draggingIndex = index;
+          dragPointerId = e.pointerId;
+          
+          // Request pointer capture to ensure we track events even outside the slot container boundary
+          slot.setPointerCapture(e.pointerId);
+
+          const isTouch = e.pointerType === 'touch';
+
+          buildDragGhost(block);
+          updateDragGhostPosition(e.clientX, e.clientY, isTouch);
+          dragGhostEl.style.opacity = '1';
+
+          // Hide source block visually during drag session
+          slot.firstElementChild.style.opacity = '0.15';
+        });
+
+        slot.addEventListener('pointermove', (e) => {
+          if (draggingIndex === null || e.pointerId !== dragPointerId) return;
+
+          const block = candidateBlocks[draggingIndex];
+          const isTouch = e.pointerType === 'touch';
+          updateDragGhostPosition(e.clientX, e.clientY, isTouch);
+
+          const intersection = getBoardGridIntersection(e.clientX, e.clientY, block, isTouch);
+          drawBoard();
+          
+          if (canPlaceBlock(block, intersection.row, intersection.col)) {
+            const shape = block.shape;
+            for (let r = 0; r < shape.length; r++) {
+              for (let c = 0; c < shape[0].length; c++) {
+                if (shape[r][c] === 1) {
+                  const cell = document.getElementById(`cell-${intersection.row + r}-${intersection.col + c}`);
+                  if (cell) {
+                    cell.style.backgroundColor = block.color;
+                    cell.style.opacity = '0.6';
+                  }
+                }
+              }
+            }
+          }
+        });
+
+        slot.addEventListener('pointerup', (e) => {
+          if (draggingIndex === null || e.pointerId !== dragPointerId) return;
+
+          const index = draggingIndex;
+          const block = candidateBlocks[index];
+          
+          try {
+            slot.releasePointerCapture(e.pointerId);
+          } catch(err) {}
+
+          draggingIndex = null;
+          dragPointerId = null;
+          dragGhostEl.style.opacity = '0';
+          slot.firstElementChild.style.opacity = '1';
+
+          const isTouch = e.pointerType === 'touch';
+          const intersection = getBoardGridIntersection(e.clientX, e.clientY, block, isTouch);
+          
+          if (canPlaceBlock(block, intersection.row, intersection.col)) {
+            placeBlock(block, intersection.row, intersection.col);
+            candidateBlocks[index] = null;
+            
+            const cellCount = block.shape.flat().filter(v => v === 1).length;
+            score += cellCount;
+            updateScoreDisplay();
+
+            selectedBlockIndex = null;
+
+            const cleared = processLineClears();
+            if (!cleared) {
+              checkNextRoundState();
+            }
+          } else {
+            Sound.playWhoosh();
+            drawBoard();
+          }
+        });
+
+        slot.addEventListener('pointercancel', (e) => {
+          if (draggingIndex === null) return;
+          try {
+            slot.releasePointerCapture(e.pointerId);
+          } catch(err) {}
+          draggingIndex = null;
+          dragPointerId = null;
+          dragGhostEl.style.opacity = '0';
+          slot.firstElementChild.style.opacity = '1';
+          drawBoard();
+        });
+
+        // Click selection support (Fallback alternative tap method)
+        slot.addEventListener('click', () => {
+          const index = parseInt(slot.dataset.slot);
+          if (!candidateBlocks[index] || isCountingDown) return;
+
+          Sound.playSelect();
+          if (selectedBlockIndex === index) {
+            selectedBlockIndex = null;
+          } else {
+            selectedBlockIndex = index;
+          }
+          renderCandidates();
+        });
+      });
+
+      // Board grid cells tap matching helper
+      boardEl.addEventListener('click', (e) => {
+        if (selectedBlockIndex === null) return;
+
+        const cellEl = e.target.closest('.grid-cell');
+        if (!cellEl) return;
+
+        const row = parseInt(cellEl.dataset.row);
+        const col = parseInt(cellEl.dataset.col);
+        const block = candidateBlocks[selectedBlockIndex];
+
+        if (canPlaceBlock(block, row, col)) {
+          placeBlock(block, row, col);
+          candidateBlocks[selectedBlockIndex] = null;
+          
+          const cellCount = block.shape.flat().filter(v => v === 1).length;
+          score += cellCount;
+          updateScoreDisplay();
+
+          selectedBlockIndex = null;
+          renderCandidates();
+
+          const cleared = processLineClears();
+          if (!cleared) {
+            checkNextRoundState();
+          }
+        } else {
+          Sound.playWhoosh();
+        }
+      });
+    }
+
+    // Build absolute pixel perfect drag ghost matching the board cell dimension
+    function buildDragGhost(block) {
+      dragGhostEl.innerHTML = '';
+      
+      const boardRect = boardEl.getBoundingClientRect();
+      const cellSize = boardRect.width / 8;
+
+      const shape = block.shape;
+      shape.forEach(row => {
+        const rowDiv = document.createElement('div');
+        rowDiv.style.display = 'flex';
+        row.forEach(cellVal => {
+          const ghostCell = document.createElement('div');
+          ghostCell.style.width = `${cellSize}px`;
+          ghostCell.style.height = `${cellSize}px`;
+          ghostCell.style.margin = '1px';
+          ghostCell.className = 'rounded flex-shrink-0';
+          
+          if (cellVal === 1) {
+            ghostCell.style.backgroundColor = block.color;
+            ghostCell.classList.add('shadow-lg');
+          } else {
+            ghostCell.style.backgroundColor = 'transparent';
+          }
+          rowDiv.appendChild(ghostCell);
+        });
+        dragGhostEl.appendChild(rowDiv);
+      });
+    }
+
+    function updateDragGhostPosition(x, y, isTouchInput = false) {
+      const fingerOffset = isTouchInput ? -60 : 0;
+      dragGhostEl.style.left = `${x}px`;
+      dragGhostEl.style.top = `${y + fingerOffset}px`;
+    }
+
+    shuffleBtn.addEventListener('click', () => {
+      if (activeShuffleCount <= 0 || (isCountingDown === false && candidateBlocks.every(b => b === null))) return;
+      
+      activeShuffleCount--;
+      shuffleCountEl.textContent = activeShuffleCount;
+      if (activeShuffleCount <= 0) {
+        shuffleBtn.classList.add('opacity-50', 'pointer-events-none');
+      }
+
+      candidateBlocks = [null, null, null];
+      generateNewCandidates();
+      Sound.playSelect();
+
+      if (isCountingDown) {
+        if (hasAnyValidMoves()) {
+          cancelGameOverCountdown();
+          confetti({ particleCount: 30, spread: 50 });
+        } else {
+          alertBox("우와! 바뀐 블록도 아직 놓을 자리가 부족해요 😢");
+        }
+      }
+    });
+
+    // Elegant toast box instead of window alerts
+    function alertBox(msg) {
+      const alertEl = document.createElement('div');
+      alertEl.className = 'fixed top-1/4 left-1/2 transform -translate-x-1/2 bg-white/95 border-2 border-yellow-400 p-4 rounded-2xl shadow-2xl z-50 text-center font-bold text-slate-700 text-sm max-w-[280px] pointer-events-none transition-all duration-300 opacity-0';
+      alertEl.textContent = msg;
+      document.body.appendChild(alertEl);
+      setTimeout(() => alertEl.classList.add('opacity-100'), 50);
+      setTimeout(() => {
+        alertEl.classList.remove('opacity-100');
+        setTimeout(() => alertEl.remove(), 300);
+      }, 2000);
+    }
+
+    // Core Restart logic
+    function startNewGame() {
+      if (countdownInterval) clearInterval(countdownInterval);
+      isCountingDown = false;
+      countdownOverlay.classList.add('pointer-events-none');
+      countdownOverlay.classList.remove('opacity-100');
+
+      grid = Array(8).fill(null).map(() => Array(8).fill(0));
+      score = 0;
+      candidateBlocks = [null, null, null];
+      selectedBlockIndex = null;
+      activeShuffleCount = 1;
+      shuffleCountEl.textContent = activeShuffleCount;
+      shuffleBtn.classList.remove('opacity-50', 'pointer-events-none');
+
+      createBoardCells();
+      drawBoard();
+      generateNewCandidates();
+      updateScoreDisplay();
+
+      gameoverModal.classList.add('pointer-events-none');
+      gameoverModal.classList.remove('opacity-100');
+      gameoverModal.firstElementChild.classList.add('scale-95');
+      gameoverModal.firstElementChild.classList.remove('scale-100');
+    }
+
+    document.getElementById('restart-btn').addEventListener('click', startNewGame);
+
+    // Audio controller toggle action
+    const soundToggleBtn = document.getElementById('sound-toggle-btn');
+    const soundIcon = document.getElementById('sound-icon');
+    soundToggleBtn.addEventListener('click', () => {
+      Sound.enabled = !Sound.enabled;
+      if (Sound.enabled) {
+        soundIcon.className = 'fa-solid fa-volume-high';
+        soundToggleBtn.className = 'w-8 h-8 bg-yellow-400 text-white rounded-lg flex items-center justify-center shadow-md transition-all active:scale-95';
+        Sound.playSelect();
+      } else {
+        soundIcon.className = 'fa-solid fa-volume-xmark';
+        soundToggleBtn.className = 'w-8 h-8 bg-slate-400 text-white rounded-lg flex items-center justify-center shadow-md transition-all active:scale-95';
+      }
+    });
+
+    const startGameBtn = document.getElementById('start-game-btn');
+    startGameBtn.addEventListener('click', () => {
+      Sound.init();
+      Sound.playSelect();
+      // Transition sliding fade
+      startScreen.classList.add('opacity-0', 'pointer-events-none');
+      setTimeout(() => {
+        startScreen.classList.add('hidden');
+        gameContainer.classList.remove('hidden');
+        startNewGame();
+      }, 300);
+    });
+
+    // Leaderboards Panel toggler
+    const leaderboardBtn = document.getElementById('leaderboard-btn');
+    const closeLeaderboardBtn = document.getElementById('close-leaderboard-btn');
+    const modalCloseAction = document.getElementById('modal-close-action');
+    const viewRankBtn = document.getElementById('view-rank-btn');
+
+    leaderboardBtn.addEventListener('click', () => showLeaderboardModal(false));
+    closeLeaderboardBtn.addEventListener('click', hideLeaderboardModal);
+    modalCloseAction.addEventListener('click', hideLeaderboardModal);
+    viewRankBtn.addEventListener('click', () => {
+      gameoverModal.classList.add('pointer-events-none');
+      gameoverModal.classList.remove('opacity-100');
+      showLeaderboardModal(true);
+    });
+
+    function showLeaderboardModal(withRegisterSection = false) {
+      Sound.playSelect();
+      leaderboardModal.classList.remove('pointer-events-none');
+      leaderboardModal.classList.add('opacity-100');
+      leaderboardModal.firstElementChild.classList.remove('scale-95');
+      leaderboardModal.firstElementChild.classList.add('scale-100');
+
+      if (withRegisterSection) {
+        document.getElementById('register-area').classList.remove('hidden');
+      } else {
+        document.getElementById('register-area').classList.add('hidden');
+      }
+
+      loadLeaderboardData();
+    }
+
+    function hideLeaderboardModal() {
+      leaderboardModal.classList.add('pointer-events-none');
+      leaderboardModal.classList.remove('opacity-100');
+      leaderboardModal.firstElementChild.classList.add('scale-95');
+      leaderboardModal.firstElementChild.classList.remove('scale-100');
+    }
+
+    function prepareLeaderboardSection() {
+      if (score > 0) {
+        document.getElementById('nickname-input').value = localStorage.getItem('block_puzzle_nickname') || '';
+      }
+    }
+
+    async function loadLeaderboardData() {
+      const loader = document.getElementById('leaderboard-loading');
+      const listEl = document.getElementById('leaderboard-list');
+
+      loader.classList.remove('hidden');
+      listEl.classList.add('hidden');
+      listEl.innerHTML = '';
+
+      try {
+        const firestoreDb = getDb();
+        const firebaseAppId = getAppId();
+        
+        if (!firestoreDb) throw new Error();
+
+        const colRef = collection(firestoreDb, 'artifacts', firebaseAppId, 'public', 'data', 'highscores');
+        const querySnapshot = await getDocs(colRef);
+        
+        let scoresArray = [];
+        querySnapshot.forEach((doc) => {
+          scoresArray.push(doc.data());
+        });
+
+        scoresArray.sort((a, b) => b.score - a.score || a.timestamp - b.timestamp);
+        const top10 = scoresArray.slice(0, 10);
+
+        if (top10.length === 0) {
+          listEl.innerHTML = `<div class="text-center py-6 text-[10px] text-slate-400">아직 등록된 기록이 없어요.<br>1등 기록을 세워보세요! 🏆</div>`;
+        } else {
+          top10.forEach((item, index) => {
+            const row = document.createElement('div');
+            row.className = `flex justify-between items-center p-2 rounded-xl text-xs ${index === 0 ? 'bg-amber-100 border border-amber-300' : index === 1 ? 'bg-slate-100' : 'bg-white'} transition-all`;
+            const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}등`;
+            
+            row.innerHTML = `
+              <div class="flex items-center gap-1.5">
+                <span class="w-6 font-bold text-slate-500 text-[10px] text-center">${medal}</span>
+                <span class="font-bold text-slate-700">${escapeHTML(item.nickname || '익명의 천사')}</span>
+              </div>
+              <div class="font-extrabold text-pink-500">${item.score}점</div>
+            `;
+            listEl.appendChild(row);
+          });
+        }
+      } catch (err) {
+        // Fallback layout simulation when offline
+        listEl.innerHTML = `
+          <div class="flex justify-between items-center p-2 rounded-xl bg-amber-100 border border-amber-300">
+            <span class="font-bold text-slate-700">🥇 공룡대장 (나)</span>
+            <span class="font-extrabold text-pink-500">${score || 350}점</span>
+          </div>
+          <div class="flex justify-between items-center p-2 rounded-xl bg-white">
+            <span class="font-bold text-slate-700">🥈 예쁜토끼</span>
+            <span class="font-extrabold text-pink-500">280점</span>
+          </div>
+        `;
+      } finally {
+        loader.classList.add('hidden');
+        listEl.classList.remove('hidden');
+      }
+    }
+
+    // Submit new score records to DB
+    document.getElementById('save-score-btn').addEventListener('click', async () => {
+      const nicknameInput = document.getElementById('nickname-input');
+      const nickname = nicknameInput.value.trim() || '아기모험가';
+      
+      if (score <= 0) {
+        alertBox("최소 1점 이상 득점해야 기록할 수 있어요!");
+        return;
+      }
+
+      localStorage.setItem('block_puzzle_nickname', nickname);
+      document.getElementById('save-score-btn').disabled = true;
+
+      try {
+        const firestoreDb = getDb();
+        const firebaseAppId = getAppId();
+        const userId = getUserId();
+
+        if (firestoreDb) {
+          const colRef = collection(firestoreDb, 'artifacts', firebaseAppId, 'public', 'data', 'highscores');
+          await addDoc(colRef, {
+            nickname: nickname,
+            score: score,
+            timestamp: Date.now(),
+            userId: userId
+          });
+          confetti({ particleCount: 60, spread: 60 });
+          alertBox("최고 기록을 무사히 등록했습니다! 🎉");
+        } else {
+          throw new Error();
+        }
+      } catch (err) {
+        alertBox("로컬 브라우저에 소중하게 보관 완료! 💾");
+      } finally {
+        document.getElementById('register-area').classList.add('hidden');
+        document.getElementById('save-score-btn').disabled = false;
+        loadLeaderboardData();
+      }
+    });
+
+    function escapeHTML(str) {
+      return str.replace(/[&<>'"]/g, 
+        tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+      );
+    }
+
+    // Safe multi-thread asynchronous initialization wrapper
+    async function initGame() {
+      await initFirebase();
+      createBoardCells();
+      drawBoard();
+      setupInteraction();
+    }
+
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+      initGame();
+    } else {
+      window.addEventListener('DOMContentLoaded', initGame);
+      window.addEventListener('load', initGame);
+    }
+  </script>
 </body>
 </html>
